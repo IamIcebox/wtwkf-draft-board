@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>WTWKF Draft Board '26</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#12161C">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏈</text></svg>">
+<style>
+  :root {
+    --bg: #F5F4F0; --surface: #FFFFFF; --surface2: #EDEBE4; --text: #1B222B;
+    --muted: #5D6672; --border: #DDDAD2; --accent: #B98A1E; --accent-soft: #F3E8CC;
+    --good: #23824F; --good-soft: #DDEEE4; --danger: #B93A3A; --danger-soft: #F4E0E0;
+    --shadow: 0 2px 10px rgba(27,34,43,.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12161C; --surface: #1B222B; --surface2: #232C37; --text: #EDEBE4;
+      --muted: #8B94A1; --border: #2A333F; --accent: #D9A62E; --accent-soft: #33301E;
+      --good: #33A868; --good-soft: #1C3226; --danger: #D14B4B; --danger-soft: #382224;
+      --shadow: 0 2px 10px rgba(0,0,0,.35);
+    }
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 16px/1.4 -apple-system, "Segoe UI", Roboto, system-ui, sans-serif;
+    padding-bottom: 96px;
+  }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .top { position: sticky; top: 0; z-index: 20; background: var(--bg); border-bottom: 1px solid var(--border); }
+  header { display: flex; align-items: center; gap: 8px; padding: 10px 14px 6px; }
+  .brand { flex: 1; min-width: 0; }
+  .brand .eyebrow {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); }
+  .sync-dot.off { background: var(--danger); }
+  .brand h1 { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -.01em; white-space: nowrap; }
+  .count-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 11px; border-radius: 999px;
+    font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
+    border: 1px solid var(--border); background: var(--surface);
+  }
+  .count-chip.team { color: var(--good); }
+  .count-chip.wish { color: var(--accent); }
+  .count-chip[aria-pressed="true"] { border-color: currentColor; background: var(--surface2); }
+
+  .searchrow { padding: 4px 14px 8px; }
+  .searchrow input {
+    width: 100%; padding: 10px 14px; font: inherit; color: var(--text);
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  }
+  .searchrow input::placeholder { color: var(--muted); }
+  .searchrow input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+  nav { display: flex; gap: 6px; overflow-x: auto; padding: 0 14px 10px; scrollbar-width: none; }
+  nav::-webkit-scrollbar { display: none; }
+  .tab {
+    flex: 0 0 auto; padding: 8px 14px; border-radius: 999px;
+    font-size: 14px; font-weight: 700;
+    background: var(--surface); border: 1px solid var(--border); color: var(--muted);
+  }
+  .tab[aria-selected="true"] { background: var(--text); border-color: var(--text); color: var(--bg); }
+
+  main { padding: 12px 10px 0; max-width: 640px; margin: 0 auto; }
+
+  .offline-note {
+    margin: 0 4px 10px; padding: 9px 13px; border-radius: 10px;
+    font-size: 13px; font-weight: 600;
+    background: var(--danger-soft); color: var(--danger);
+    border: 1px solid var(--danger);
+  }
+
+  .nextbest { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 2px 4px 14px; }
+  .nb-card {
+    text-align: left; padding: 9px 10px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: var(--shadow);
+    display: flex; flex-direction: column; gap: 2px; min-width: 0;
+  }
+  .nb-pos { font-size: 11px; font-weight: 800; letter-spacing: .1em; color: var(--muted); }
+  .nb-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nb-rank { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .section-label {
+    margin: 16px 6px 8px; font-size: 11px; font-weight: 700; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--muted);
+  }
+
+  ul.roster { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  li.row {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 8px 8px 8px 12px; min-height: 60px;
+  }
+  li.row.gone-row { opacity: .55; }
+  li.row.gone-row .p-name { text-decoration: line-through; }
+
+  .p-rank {
+    flex: 0 0 34px; text-align: right;
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: 15px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums;
+  }
+  .p-info { flex: 1; min-width: 0; }
+  .p-name { font-weight: 700; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .p-sub { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+  .p-team { font-size: 12px; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pos-pill { font-size: 10px; font-weight: 800; letter-spacing: .08em; color: #fff; padding: 2px 7px; border-radius: 999px; }
+  .pos-QB  { background: #E4536B; }
+  .pos-RB  { background: #1FA98A; }
+  .pos-WR  { background: #4E8DE8; }
+  .pos-TE  { background: #E8863D; }
+  .pos-K   { background: #9B7BD4; }
+  .pos-DST { background: #8A8F73; }
+
+  .actions { display: flex; gap: 6px; flex: 0 0 auto; }
+  .act {
+    width: 46px; height: 46px; border-radius: 11px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 700;
+    border: 1px solid var(--border); background: var(--surface2);
+  }
+  .act:active { transform: scale(.93); }
+  .act.wish { color: var(--accent); }
+  .act.wish[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+  .act.mine { color: var(--good); background: var(--good-soft); border-color: var(--good); }
+  .act.gone { color: var(--danger); }
+  .act.undo-one { color: var(--good); font-size: 18px; }
+
+  .empty { text-align: center; color: var(--muted); padding: 40px 20px; font-size: 15px; }
+
+  .roster-summary { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 4px 14px; }
+  .rs-chip {
+    padding: 5px 11px; border-radius: 999px; font-size: 13px; font-weight: 700;
+    background: var(--surface); border: 1px solid var(--border); font-variant-numeric: tabular-nums;
+  }
+  .pick-num { flex: 0 0 34px; text-align: center; font-size: 12px; font-weight: 800; color: var(--good); font-variant-numeric: tabular-nums; }
+
+  .listfoot { text-align: center; padding: 18px 0 6px; }
+  .toggle-gone {
+    font-size: 13px; font-weight: 600; color: var(--muted);
+    padding: 10px 16px; border-radius: 999px; border: 1px dashed var(--border);
+  }
+
+  .undo-fab {
+    position: fixed; right: 14px; bottom: 18px; z-index: 30;
+    display: flex; align-items: center; gap: 8px;
+    padding: 14px 20px; border-radius: 999px;
+    background: var(--text); color: var(--bg);
+    font-size: 15px; font-weight: 800; box-shadow: var(--shadow);
+  }
+  .undo-fab:disabled { opacity: .35; }
+  .undo-fab .n { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 13px; opacity: .7; }
+
+  footer {
+    max-width: 640px; margin: 26px auto 0; padding: 0 14px 20px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    font-size: 12px; color: var(--muted); flex-wrap: wrap;
+  }
+  .name-btn { font-size: 12px; font-weight: 700; color: var(--muted); padding: 8px 0; text-decoration: underline; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%);
+    background: var(--text); color: var(--bg);
+    font-size: 14px; font-weight: 600; padding: 10px 18px; border-radius: 999px;
+    box-shadow: var(--shadow); z-index: 40; opacity: 0; pointer-events: none;
+    transition: opacity .18s ease;
+    white-space: nowrap; max-width: 92vw; overflow: hidden; text-overflow: ellipsis;
+  }
+  .toast.show { opacity: 1; }
+
+  .modal {
+    position: fixed; inset: 0; z-index: 50;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  .modal[hidden] { display: none; }
+  .modal-card { width: 100%; max-width: 380px; text-align: center; }
+  .modal-card .fb { font-size: 44px; }
+  .modal-card h2 { margin: 10px 0 4px; font-size: 22px; font-weight: 800; }
+  .modal-card p { margin: 0 0 20px; color: var(--muted); font-size: 14px; }
+  .modal-card input {
+    width: 100%; padding: 14px; font: inherit; font-size: 18px; text-align: center;
+    color: var(--text); background: var(--surface);
+    border: 1px solid var(--border); border-radius: 12px;
+  }
+  .modal-card input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .modal-card .go {
+    margin-top: 12px; width: 100%; padding: 14px; border-radius: 12px;
+    background: var(--good); color: #fff; font-size: 17px; font-weight: 800;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .act:active { transform: none; }
+    .toast { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="modal" id="nameModal" hidden>
+  <div class="modal-card">
+    <div class="fb">🏈</div>
+    <h2>WTWKF Draft Board</h2>
+    <p>Enter your name so the league can see who crossed players off. Your team and wishlist stay on your phone only.</p>
+    <input id="nameInput" maxlength="24" placeholder="Your name" autocomplete="off">
+    <button class="go" id="nameGo">Start drafting</button>
+  </div>
+</div>
+
+<div class="top">
+  <header>
+    <div class="brand">
+      <div class="eyebrow"><span class="sync-dot" id="syncDot"></span><span id="syncLabel">ESPN PPR Top 200</span></div>
+      <h1>WTWKF Draft &rsquo;26</h1>
+    </div>
+    <button class="count-chip team" id="chipTeam" aria-pressed="false">MY TEAM <span id="teamCount">0</span></button>
+    <button class="count-chip wish" id="chipWish" aria-pressed="false">&#9733; <span id="wishCount">0</span></button>
+  </header>
+  <div class="searchrow">
+    <input id="search" type="search" placeholder="Search any player to cross off&hellip;" autocomplete="off" autocapitalize="off">
+  </div>
+  <nav id="tabs" role="tablist"></nav>
+</div>
+
+<main>
+  <div class="offline-note" id="offlineNote" hidden>Connection lost — your taps are saved and will sync when you're back online.</div>
+  <div id="nextbest" class="nextbest" hidden></div>
+  <div id="rosterSummary" class="roster-summary" hidden></div>
+  <ul class="roster" id="list"></ul>
+  <div class="empty" id="empty" hidden></div>
+  <div class="listfoot" id="listfoot" hidden>
+    <button class="toggle-gone" id="toggleGone" aria-pressed="false">Show crossed-off players</button>
+  </div>
+</main>
+
+<button class="undo-fab" id="undoBtn" disabled>&#8630; Undo <span class="n" id="undoCount"></span></button>
+<div class="toast" id="toast" role="status"></div>
+
+<footer>
+  <span>ESPN PPR Top 300 cheat sheet &middot; Jul 31, 2026</span>
+  <button class="name-btn" id="nameBtn"></button>
+</footer>
+
+<script>
+const PLAYERS = [{"rank":1,"name":"Jahmyr Gibbs","team":"DET","pos":"RB"},{"rank":2,"name":"Bijan Robinson","team":"ATL","pos":"RB"},{"rank":3,"name":"Puka Nacua","team":"LAR","pos":"WR"},{"rank":4,"name":"Ja'Marr Chase","team":"CIN","pos":"WR"},{"rank":5,"name":"Jaxon Smith-Njigba","team":"SEA","pos":"WR"},{"rank":6,"name":"Christian McCaffrey","team":"SF","pos":"RB"},{"rank":7,"name":"Jonathan Taylor","team":"IND","pos":"RB"},{"rank":8,"name":"Amon-Ra St. Brown","team":"DET","pos":"WR"},{"rank":9,"name":"CeeDee Lamb","team":"DAL","pos":"WR"},{"rank":10,"name":"De'Von Achane","team":"MIA","pos":"RB"},{"rank":11,"name":"Justin Jefferson","team":"MIN","pos":"WR"},{"rank":12,"name":"James Cook III","team":"BUF","pos":"RB"},{"rank":13,"name":"Jeremiyah Love","team":"ARI","pos":"RB"},{"rank":14,"name":"Drake London","team":"ATL","pos":"WR"},{"rank":15,"name":"Ashton Jeanty","team":"LV","pos":"RB"},{"rank":16,"name":"Rashee Rice","team":"KC","pos":"WR"},{"rank":17,"name":"Trey McBride","team":"ARI","pos":"TE"},{"rank":18,"name":"Omarion Hampton","team":"LAC","pos":"RB"},{"rank":19,"name":"Saquon Barkley","team":"PHI","pos":"RB"},{"rank":20,"name":"Derrick Henry","team":"BAL","pos":"RB"},{"rank":21,"name":"Chase Brown","team":"CIN","pos":"RB"},{"rank":22,"name":"Kenneth Walker III","team":"KC","pos":"RB"},{"rank":23,"name":"Josh Jacobs","team":"GB","pos":"RB"},{"rank":24,"name":"Brock Bowers","team":"LV","pos":"TE"},{"rank":25,"name":"Nico Collins","team":"HOU","pos":"WR"},{"rank":26,"name":"Garrett Wilson","team":"NYJ","pos":"WR"},{"rank":27,"name":"A.J. Brown","team":"NE","pos":"WR"},{"rank":28,"name":"Chris Olave","team":"NO","pos":"WR"},{"rank":29,"name":"George Pickens","team":"DAL","pos":"WR"},{"rank":30,"name":"Breece Hall","team":"NYJ","pos":"RB"},{"rank":31,"name":"Javonte Williams","team":"DAL","pos":"RB"},{"rank":32,"name":"Malik Nabers","team":"NYG","pos":"WR"},{"rank":33,"name":"Tetairoa McMillan","team":"CAR","pos":"WR"},{"rank":34,"name":"Zay Flowers","team":"BAL","pos":"WR"},{"rank":35,"name":"DeVonta Smith","team":"PHI","pos":"WR"},{"rank":36,"name":"Josh Allen","team":"BUF","pos":"QB"},{"rank":37,"name":"Kyren Williams","team":"LAR","pos":"RB"},{"rank":38,"name":"Travis Etienne Jr.","team":"NO","pos":"RB"},{"rank":39,"name":"Cam Skattebo","team":"NYG","pos":"RB"},{"rank":40,"name":"Quinshon Judkins","team":"CLE","pos":"RB"},{"rank":41,"name":"Bucky Irving","team":"TB","pos":"RB"},{"rank":42,"name":"Emeka Egbuka","team":"TB","pos":"WR"},{"rank":43,"name":"Davante Adams","team":"LAR","pos":"WR"},{"rank":44,"name":"Ladd McConkey","team":"LAC","pos":"WR"},{"rank":45,"name":"Terry McLaurin","team":"WAS","pos":"WR"},{"rank":46,"name":"Tee Higgins","team":"CIN","pos":"WR"},{"rank":47,"name":"Jaylen Waddle","team":"DEN","pos":"WR"},{"rank":48,"name":"Jameson Williams","team":"DET","pos":"WR"},{"rank":49,"name":"Colston Loveland","team":"CHI","pos":"TE"},{"rank":50,"name":"Tyler Warren","team":"IND","pos":"TE"},{"rank":51,"name":"Carnell Tate","team":"TEN","pos":"WR"},{"rank":52,"name":"Rome Odunze","team":"CHI","pos":"WR"},{"rank":53,"name":"Luther Burden III","team":"CHI","pos":"WR"},{"rank":54,"name":"DJ Moore","team":"BUF","pos":"WR"},{"rank":55,"name":"Jayden Daniels","team":"WAS","pos":"QB"},{"rank":56,"name":"Lamar Jackson","team":"BAL","pos":"QB"},{"rank":57,"name":"Drake Maye","team":"NE","pos":"QB"},{"rank":58,"name":"Jalen Hurts","team":"PHI","pos":"QB"},{"rank":59,"name":"TreVeyon Henderson","team":"NE","pos":"RB"},{"rank":60,"name":"Bhayshul Tuten","team":"JAC","pos":"RB"},{"rank":61,"name":"D'Andre Swift","team":"CHI","pos":"RB"},{"rank":62,"name":"David Montgomery","team":"HOU","pos":"RB"},{"rank":63,"name":"Jadarian Price","team":"SEA","pos":"RB"},{"rank":64,"name":"Tony Pollard","team":"TEN","pos":"RB"},{"rank":65,"name":"Courtland Sutton","team":"DEN","pos":"WR"},{"rank":66,"name":"Michael Pittman Jr.","team":"PIT","pos":"WR"},{"rank":67,"name":"Alec Pierce","team":"IND","pos":"WR"},{"rank":68,"name":"Marvin Harrison Jr.","team":"ARI","pos":"WR"},{"rank":69,"name":"DK Metcalf","team":"PIT","pos":"WR"},{"rank":70,"name":"Jordyn Tyson","team":"NO","pos":"WR"},{"rank":71,"name":"Kyle Pitts Sr.","team":"ATL","pos":"TE"},{"rank":72,"name":"Harold Fannin Jr.","team":"CLE","pos":"TE"},{"rank":73,"name":"Sam LaPorta","team":"DET","pos":"TE"},{"rank":74,"name":"Joe Burrow","team":"CIN","pos":"QB"},{"rank":75,"name":"Jaxson Dart","team":"NYG","pos":"QB"},{"rank":76,"name":"Mike Evans","team":"SF","pos":"WR"},{"rank":77,"name":"Parker Washington","team":"JAC","pos":"WR"},{"rank":78,"name":"Christian Watson","team":"GB","pos":"WR"},{"rank":79,"name":"Matthew Golden","team":"GB","pos":"WR"},{"rank":80,"name":"Michael Wilson","team":"ARI","pos":"WR"},{"rank":81,"name":"Brian Thomas Jr.","team":"JAC","pos":"WR"},{"rank":82,"name":"Trevor Lawrence","team":"JAC","pos":"QB"},{"rank":83,"name":"Dak Prescott","team":"DAL","pos":"QB"},{"rank":84,"name":"Bo Nix","team":"DEN","pos":"QB"},{"rank":85,"name":"Brock Purdy","team":"SF","pos":"QB"},{"rank":86,"name":"Matthew Stafford","team":"LAR","pos":"QB"},{"rank":87,"name":"Caleb Williams","team":"CHI","pos":"QB"},{"rank":88,"name":"Jakobi Meyers","team":"JAC","pos":"WR"},{"rank":89,"name":"Wan'Dale Robinson","team":"TEN","pos":"WR"},{"rank":90,"name":"Makai Lemon","team":"PHI","pos":"WR"},{"rank":91,"name":"Josh Downs","team":"IND","pos":"WR"},{"rank":92,"name":"Jordan Addison","team":"MIN","pos":"WR"},{"rank":93,"name":"Justin Herbert","team":"LAC","pos":"QB"},{"rank":94,"name":"Patrick Mahomes","team":"KC","pos":"QB"},{"rank":95,"name":"Jaylen Warren","team":"PIT","pos":"RB"},{"rank":96,"name":"Rhamondre Stevenson","team":"NE","pos":"RB"},{"rank":97,"name":"Rico Dowdle","team":"PIT","pos":"RB"},{"rank":98,"name":"Kenny Gainwell","team":"TB","pos":"RB"},{"rank":99,"name":"Chuba Hubbard","team":"CAR","pos":"RB"},{"rank":100,"name":"Aaron Jones Sr.","team":"MIN","pos":"RB"},{"rank":101,"name":"George Kittle","team":"SF","pos":"TE"},{"rank":102,"name":"Tucker Kraft","team":"GB","pos":"TE"},{"rank":103,"name":"Dallas Goedert","team":"PHI","pos":"TE"},{"rank":104,"name":"Travis Kelce","team":"KC","pos":"TE"},{"rank":105,"name":"Rachaad White","team":"WAS","pos":"RB"},{"rank":106,"name":"Jonathon Brooks","team":"CAR","pos":"RB"},{"rank":107,"name":"J.K. Dobbins","team":"DEN","pos":"RB"},{"rank":108,"name":"RJ Harvey","team":"DEN","pos":"RB"},{"rank":109,"name":"Jake Ferguson","team":"DAL","pos":"TE"},{"rank":110,"name":"Mark Andrews","team":"BAL","pos":"TE"},{"rank":111,"name":"T.J. Hockenson","team":"MIN","pos":"TE"},{"rank":112,"name":"Khalil Shakir","team":"BUF","pos":"WR"},{"rank":113,"name":"Jayden Reed","team":"GB","pos":"WR"},{"rank":114,"name":"Xavier Worthy","team":"KC","pos":"WR"},{"rank":115,"name":"Kyle Monangai","team":"CHI","pos":"RB"},{"rank":116,"name":"Kenyon Sadiq","team":"NYJ","pos":"TE"},{"rank":117,"name":"Isaiah Likely","team":"NYG","pos":"TE"},{"rank":118,"name":"Dalton Kincaid","team":"BUF","pos":"TE"},{"rank":119,"name":"Hunter Henry","team":"NE","pos":"TE"},{"rank":120,"name":"Jacory Croskey-Merritt","team":"WAS","pos":"RB"},{"rank":121,"name":"Blake Corum","team":"LAR","pos":"RB"},{"rank":122,"name":"Woody Marks","team":"HOU","pos":"RB"},{"rank":123,"name":"Zach Charbonnet","team":"SEA","pos":"RB"},{"rank":124,"name":"Quentin Johnston","team":"LAC","pos":"WR"},{"rank":125,"name":"KC Concepcion","team":"CLE","pos":"WR"},{"rank":126,"name":"Deebo Samuel Sr.","team":"SF","pos":"WR"},{"rank":127,"name":"Chris Godwin Jr.","team":"TB","pos":"WR"},{"rank":128,"name":"Romeo Doubs","team":"NE","pos":"WR"},{"rank":129,"name":"Jayden Higgins","team":"HOU","pos":"WR"},{"rank":130,"name":"Jalen Coker","team":"CAR","pos":"WR"},{"rank":131,"name":"Jerry Jeudy","team":"CLE","pos":"WR"},{"rank":132,"name":"Rashid Shaheed","team":"SEA","pos":"WR"},{"rank":133,"name":"Kyler Murray","team":"MIN","pos":"QB"},{"rank":134,"name":"Tyler Shough","team":"NO","pos":"QB"},{"rank":135,"name":"Jared Goff","team":"DET","pos":"QB"},{"rank":136,"name":"Daniel Jones","team":"IND","pos":"QB"},{"rank":137,"name":"Jordan Mason","team":"MIN","pos":"RB"},{"rank":138,"name":"Alvin Kamara","team":"NO","pos":"RB"},{"rank":139,"name":"Isiah Pacheco","team":"DET","pos":"RB"},{"rank":140,"name":"Chris Rodriguez Jr.","team":"JAC","pos":"RB"},{"rank":141,"name":"Brian Robinson Jr.","team":"ATL","pos":"RB"},{"rank":142,"name":"Tank Bigsby","team":"PHI","pos":"RB"},{"rank":143,"name":"Jalen McMillan","team":"TB","pos":"WR"},{"rank":144,"name":"Calvin Ridley","team":"TEN","pos":"WR"},{"rank":145,"name":"Denzel Boston","team":"CLE","pos":"WR"},{"rank":146,"name":"Travis Hunter","team":"JAC","pos":"WR"},{"rank":147,"name":"Adonai Mitchell","team":"NYJ","pos":"WR"},{"rank":148,"name":"De'Zhaun Stribling","team":"SF","pos":"WR"},{"rank":149,"name":"Baker Mayfield","team":"TB","pos":"QB"},{"rank":150,"name":"Malik Willis","team":"MIA","pos":"QB"},{"rank":151,"name":"Germie Bernard","team":"PIT","pos":"WR"},{"rank":152,"name":"Antonio Williams","team":"WAS","pos":"WR"},{"rank":153,"name":"Tre Tucker","team":"LV","pos":"WR"},{"rank":154,"name":"Ray Davis","team":"BUF","pos":"RB"},{"rank":155,"name":"Tyrone Tracy Jr.","team":"NYG","pos":"RB"},{"rank":156,"name":"Mike Washington Jr.","team":"LV","pos":"RB"},{"rank":157,"name":"Tyler Allgeier","team":"ARI","pos":"RB"},{"rank":158,"name":"Dylan Sampson","team":"CLE","pos":"RB"},{"rank":159,"name":"Terrance Ferguson","team":"LAR","pos":"TE"},{"rank":160,"name":"Juwan Johnson","team":"NO","pos":"TE"},{"rank":161,"name":"Jalen Nailor","team":"LV","pos":"WR"},{"rank":162,"name":"Omar Cooper Jr.","team":"NYJ","pos":"WR"},{"rank":163,"name":"Rashod Bateman","team":"BAL","pos":"WR"},{"rank":164,"name":"Jauan Jennings","team":"MIN","pos":"WR"},{"rank":165,"name":"Tank Dell","team":"HOU","pos":"WR"},{"rank":166,"name":"Tyjae Spears","team":"TEN","pos":"RB"},{"rank":167,"name":"Braelon Allen","team":"NYJ","pos":"RB"},{"rank":168,"name":"Keaton Mitchell","team":"LAC","pos":"RB"},{"rank":169,"name":"Broncos D/ST","team":"DEN","pos":"DST"},{"rank":170,"name":"Texans D/ST","team":"HOU","pos":"DST"},{"rank":171,"name":"Steelers D/ST","team":"PIT","pos":"DST"},{"rank":172,"name":"Seahawks D/ST","team":"SEA","pos":"DST"},{"rank":173,"name":"Rams D/ST","team":"LAR","pos":"DST"},{"rank":174,"name":"Ravens D/ST","team":"BAL","pos":"DST"},{"rank":175,"name":"Eagles D/ST","team":"PHI","pos":"DST"},{"rank":176,"name":"Browns D/ST","team":"CLE","pos":"DST"},{"rank":177,"name":"Patriots D/ST","team":"NE","pos":"DST"},{"rank":178,"name":"Lions D/ST","team":"DET","pos":"DST"},{"rank":179,"name":"Chiefs D/ST","team":"KC","pos":"DST"},{"rank":180,"name":"Chargers D/ST","team":"LAC","pos":"DST"},{"rank":181,"name":"Brandon Aubrey","team":"DAL","pos":"K"},{"rank":182,"name":"Cameron Dicker","team":"LAC","pos":"K"},{"rank":183,"name":"Jason Myers","team":"SEA","pos":"K"},{"rank":184,"name":"Harrison Mevis","team":"LAR","pos":"K"},{"rank":185,"name":"Ka'imi Fairbairn","team":"HOU","pos":"K"},{"rank":186,"name":"Eddy Pineiro","team":"SF","pos":"K"},{"rank":187,"name":"Harrison Butker","team":"KC","pos":"K"},{"rank":188,"name":"Cam Little","team":"JAC","pos":"K"},{"rank":189,"name":"Jake Bates","team":"DET","pos":"K"},{"rank":190,"name":"Tyler Loop","team":"BAL","pos":"K"},{"rank":191,"name":"Cairo Santos","team":"CHI","pos":"K"},{"rank":192,"name":"Will Reichard","team":"MIN","pos":"K"},{"rank":193,"name":"Jordan James","team":"SF","pos":"RB"},{"rank":194,"name":"Brenton Strange","team":"JAC","pos":"TE"},{"rank":195,"name":"James Conner","team":"ARI","pos":"RB"},{"rank":196,"name":"Justice Hill","team":"BAL","pos":"RB"},{"rank":197,"name":"Zachariah Branch","team":"ATL","pos":"WR"},{"rank":198,"name":"Jordan Love","team":"GB","pos":"QB"},{"rank":199,"name":"Cam Ward","team":"TEN","pos":"QB"},{"rank":200,"name":"C.J. Stroud","team":"HOU","pos":"QB"}];
+
+const CFG = {
+  url: "https://xfurygeaqasvtulqilho.supabase.co",
+  key: "sb_publishable_kGoWzWypzwg-7rUdxHKNBg_H4-70BZA",
+};
+const ROOM = (new URLSearchParams(location.search).get("room") || "wtwkf").slice(0, 40);
+const POLL_MS = 3000;
+
+const POS = ["QB", "RB", "WR", "TE", "K", "DST"];
+const TABS = [
+  { id: "BEST", label: "Best" },
+  ...POS.map(p => ({ id: p, label: p === "DST" ? "D/ST" : p })),
+  { id: "WISH", label: "★ Wishlist" },
+  { id: "TEAM", label: "My Team" },
+];
+const KEY = "wtwkf-draft:" + ROOM;
+const NAME_KEY = "wtwkf-name";
+const byRank = new Map(PLAYERS.map(p => [p.rank, p]));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+/* ---------- local (per-phone) state ---------- */
+let local = { mine: [], wish: [], hist: [], pending: [] };
+try {
+  const saved = JSON.parse(localStorage.getItem(KEY));
+  if (saved && Array.isArray(saved.mine)) local = { mine: [], wish: [], hist: [], pending: [], ...saved };
+} catch (e) {}
+let myName = localStorage.getItem(NAME_KEY) || "";
+
+/* ---------- shared (league-wide) state ---------- */
+const latest = new Map();   // rank -> {id, action, by_name}  latest server event per player
+let cursor = 0;             // highest event id ingested via poll
+let firstLoadDone = false;
+let online = true;
+
+let tab = "BEST";
+let showGone = false;
+let toastTimer = null;
+
+const $ = id => document.getElementById(id);
+function save() { localStorage.setItem(KEY, JSON.stringify(local)); }
+
+function pendingFor(rank) {
+  for (let i = local.pending.length - 1; i >= 0; i--)
+    if (local.pending[i].rank === rank) return local.pending[i];
+  return null;
+}
+function isGone(rank) {
+  const p = pendingFor(rank);
+  if (p) return p.action === "drafted";
+  const e = latest.get(rank);
+  return !!e && e.action === "drafted";
+}
+function goneBy(rank) {
+  const p = pendingFor(rank);
+  if (p) return p.by_name;
+  const e = latest.get(rank);
+  return e ? e.by_name : "";
+}
+const mineSet = () => new Set(local.mine);
+const wishSet = () => new Set(local.wish);
+
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 2000);
+}
+
+/* ---------- server sync ---------- */
+function applyEvent(e) {
+  const cur = latest.get(e.rank);
+  if (cur && cur.id >= e.id) return false;
+  const changed = !cur || cur.action !== e.action;
+  latest.set(e.rank, { id: e.id, action: e.action, by_name: e.by_name });
+  return changed;
+}
+
+async function sendOp(op) {
+  const res = await fetch(CFG.url + "/rest/v1/draft_events", {
+    method: "POST",
+    headers: { apikey: CFG.key, "content-type": "application/json", prefer: "return=representation" },
+    body: JSON.stringify({ room: ROOM, rank: op.rank, action: op.action, by_name: op.by_name }),
+  });
+  if (!res.ok) throw new Error("insert failed " + res.status);
+  const rows = await res.json();
+  if (rows[0]) applyEvent(rows[0]);
+}
+
+function queueOp(rank, action) {
+  const op = { rank, action, by_name: myName };
+  local.pending.push(op);
+  save();
+  flushPending();
+}
+
+let flushing = false;
+async function flushPending() {
+  if (flushing) return;
+  flushing = true;
+  try {
+    while (local.pending.length) {
+      await sendOp(local.pending[0]);
+      local.pending.shift();
+      save();
+    }
+    setOnline(true);
+  } catch (e) {
+    setOnline(false);
+  } finally {
+    flushing = false;
+    render();
+  }
+}
+
+async function poll() {
+  try {
+    const res = await fetch(CFG.url + "/rest/v1/draft_events?room=eq." + encodeURIComponent(ROOM) +
+      "&id=gt." + cursor + "&order=id.asc&limit=1000", { headers: { apikey: CFG.key } });
+    if (!res.ok) throw new Error("poll " + res.status);
+    const rows = await res.json();
+    const news = [];
+    for (const e of rows) {
+      cursor = Math.max(cursor, e.id);
+      const changed = applyEvent(e);
+      if (changed && firstLoadDone && e.by_name !== myName) news.push(e);
+    }
+    setOnline(true);
+    if (rows.length || !firstLoadDone) {
+      firstLoadDone = true;
+      render();
+    }
+    if (news.length === 1) {
+      const e = news[0];
+      const p = byRank.get(e.rank);
+      if (p) toast(p.name + (e.action === "drafted" ? " crossed off" : " restored") + (e.by_name ? " — " + e.by_name : ""));
+    } else if (news.length > 1) {
+      toast(news.length + " board updates from the league");
+    }
+    if (local.pending.length) flushPending();
+  } catch (e) {
+    setOnline(false);
+    render();
+  }
+}
+
+function setOnline(v) {
+  online = v;
+  $("syncDot").classList.toggle("off", !v);
+  $("offlineNote").hidden = v;
+  updateSyncLabel();
+}
+function updateSyncLabel() {
+  const taken = PLAYERS.filter(p => isGone(p.rank) || mineSet().has(p.rank)).length;
+  $("syncLabel").textContent = online
+    ? (taken ? "Live · " + taken + " of 200 off the board" : "Live · full board")
+    : "Offline";
+}
+
+/* ---------- actions (one tap, undoable) ---------- */
+function pushHist(a) {
+  local.hist.push(a);
+  if (local.hist.length > 400) local.hist.shift();
+}
+
+function markGone(r) {
+  const wasWish = local.wish.includes(r);
+  pushHist({ t: "gone", r, wasWish });
+  queueOp(r, "drafted");
+  save();
+  render();
+  toast(byRank.get(r).name + " crossed off");
+}
+
+function draftMine(r) {
+  const wasWish = local.wish.includes(r);
+  local.mine.push(r);
+  local.wish = local.wish.filter(x => x !== r);
+  pushHist({ t: "mine", r, wasWish });
+  queueOp(r, "drafted");
+  save();
+  render();
+  toast(byRank.get(r).name + " → your team (pick " + local.mine.length + ")");
+}
+
+function toggleWish(r) {
+  if (local.wish.includes(r)) {
+    local.wish = local.wish.filter(x => x !== r);
+    pushHist({ t: "unwish", r });
+  } else {
+    local.wish.push(r);
+    pushHist({ t: "wish", r });
+  }
+  save();
+  render();
+}
+
+function restoreGone(r) {
+  pushHist({ t: "restoreGone", r });
+  queueOp(r, "undrafted");
+  save();
+  render();
+  toast(byRank.get(r).name + " restored for everyone");
+}
+
+function removeMine(r) {
+  local.mine = local.mine.filter(x => x !== r);
+  pushHist({ t: "removeMine", r });
+  queueOp(r, "undrafted");
+  save();
+  render();
+  toast(byRank.get(r).name + " returned to the pool");
+}
+
+function undo() {
+  const a = local.hist.pop();
+  if (!a) return;
+  const p = byRank.get(a.r);
+  if (a.t === "gone") {
+    queueOp(a.r, "undrafted");
+    if (a.wasWish && !local.wish.includes(a.r)) local.wish.push(a.r);
+  } else if (a.t === "mine") {
+    local.mine = local.mine.filter(x => x !== a.r);
+    queueOp(a.r, "undrafted");
+    if (a.wasWish && !local.wish.includes(a.r)) local.wish.push(a.r);
+  } else if (a.t === "wish") {
+    local.wish = local.wish.filter(x => x !== a.r);
+  } else if (a.t === "unwish") {
+    if (!local.wish.includes(a.r)) local.wish.push(a.r);
+  } else if (a.t === "restoreGone") {
+    queueOp(a.r, "drafted");
+  } else if (a.t === "removeMine") {
+    if (!local.mine.includes(a.r)) local.mine.push(a.r);
+    queueOp(a.r, "drafted");
+  }
+  save();
+  render();
+  toast("Undid: " + p.name);
+}
+
+/* ---------- rendering ---------- */
+function pill(p) {
+  return '<span class="pos-pill pos-' + p.pos + '">' + (p.pos === "DST" ? "D/ST" : p.pos) + "</span>";
+}
+function availablePlayers() {
+  const m = mineSet();
+  return PLAYERS.filter(p => !isGone(p.rank) && !m.has(p.rank));
+}
+
+function rowHTML(p, kind, extra) {
+  const w = wishSet().has(p.rank);
+  let actions = "";
+  if (kind === "avail") {
+    actions =
+      '<button class="act wish" aria-pressed="' + w + '" aria-label="Wishlist ' + esc(p.name) + '" data-a="wish" data-r="' + p.rank + '">' + (w ? "★" : "☆") + "</button>" +
+      '<button class="act mine" aria-label="Draft ' + esc(p.name) + ' to my team" data-a="mine" data-r="' + p.rank + '">+</button>' +
+      '<button class="act gone" aria-label="Cross off ' + esc(p.name) + '" data-a="gone" data-r="' + p.rank + '">✕</button>';
+  } else if (kind === "gone") {
+    actions = '<button class="act undo-one" aria-label="Restore ' + esc(p.name) + '" data-a="restore" data-r="' + p.rank + '">↩</button>';
+  } else if (kind === "team") {
+    actions = '<button class="act gone" aria-label="Remove ' + esc(p.name) + ' from my team" data-a="unmine" data-r="' + p.rank + '">✕</button>';
+  }
+  const lead = kind === "team"
+    ? '<div class="pick-num">#' + extra + "</div>"
+    : '<div class="p-rank">' + p.rank + "</div>";
+  const by = kind === "gone" && goneBy(p.rank) ? " &middot; by " + esc(goneBy(p.rank)) : "";
+  return (
+    '<li class="row' + (kind === "gone" ? " gone-row" : "") + '">' + lead +
+    '<div class="p-info"><div class="p-name">' + esc(p.name) + "</div>" +
+    '<div class="p-sub">' + pill(p) + '<span class="p-team">' + p.team + " &middot; #" + p.rank + by + "</span></div></div>" +
+    '<div class="actions">' + actions + "</div></li>"
+  );
+}
+
+function renderNextBest() {
+  const nb = $("nextbest");
+  if (tab !== "BEST" || $("search").value.trim()) { nb.hidden = true; return; }
+  const avail = availablePlayers();
+  nb.hidden = false;
+  nb.innerHTML = POS.map(pos => {
+    const p = avail.find(x => x.pos === pos);
+    const label = pos === "DST" ? "D/ST" : pos;
+    if (!p) return '<div class="nb-card"><span class="nb-pos">' + label + '</span><span class="nb-name">&mdash;</span><span class="nb-rank">none left</span></div>';
+    return (
+      '<button class="nb-card" data-jump="' + pos + '">' +
+      '<span class="nb-pos">' + label + "</span>" +
+      '<span class="nb-name">' + esc(p.name) + "</span>" +
+      '<span class="nb-rank">#' + p.rank + " overall</span></button>"
+    );
+  }).join("");
+}
+
+function render() {
+  document.querySelectorAll(".tab").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
+  $("teamCount").textContent = local.mine.length;
+  $("wishCount").textContent = local.wish.filter(r => !isGone(r)).length;
+  $("chipTeam").setAttribute("aria-pressed", tab === "TEAM");
+  $("chipWish").setAttribute("aria-pressed", tab === "WISH");
+  $("undoBtn").disabled = !local.hist.length;
+  $("undoCount").textContent = local.hist.length || "";
+  $("nameBtn").textContent = myName ? "You: " + myName + " (change)" : "Set your name";
+  updateSyncLabel();
+
+  const q = $("search").value.trim().toLowerCase();
+  const list = $("list");
+  const empty = $("empty");
+  const foot = $("listfoot");
+  const summary = $("rosterSummary");
+  summary.hidden = true;
+  renderNextBest();
+
+  let html = "";
+  let emptyMsg = "";
+
+  if (q) {
+    const hits = availablePlayers().filter(p =>
+      p.name.toLowerCase().includes(q) || p.team.toLowerCase().includes(q));
+    html = hits.map(p => rowHTML(p, "avail")).join("");
+    emptyMsg = "No available player matches “" + $("search").value.trim() + "”.";
+    foot.hidden = true;
+  } else if (tab === "TEAM") {
+    const counts = {};
+    local.mine.forEach(r => { const p = byRank.get(r); counts[p.pos] = (counts[p.pos] || 0) + 1; });
+    if (local.mine.length) {
+      summary.hidden = false;
+      summary.innerHTML = POS.filter(p => counts[p])
+        .map(p => '<span class="rs-chip">' + (p === "DST" ? "D/ST" : p) + " " + counts[p] + "</span>").join("");
+    }
+    html = local.mine.map((r, i) => rowHTML(byRank.get(r), "team", i + 1)).join("");
+    emptyMsg = "No picks yet. Tap + on a player when you draft them.";
+    foot.hidden = true;
+  } else if (tab === "WISH") {
+    const rows = local.wish.filter(r => !isGone(r) && !mineSet().has(r))
+      .map(r => byRank.get(r)).sort((a, b) => a.rank - b.rank);
+    html = rows.map(p => rowHTML(p, "avail")).join("");
+    emptyMsg = "Wishlist is empty. Tap ☆ on players you're targeting — they drop off automatically when anyone drafts them.";
+    foot.hidden = true;
+  } else {
+    const avail = availablePlayers().filter(p => tab === "BEST" || p.pos === tab);
+    html = avail.map(p => rowHTML(p, "avail")).join("");
+    if (showGone) {
+      const goneRows = PLAYERS.filter(p => isGone(p.rank) && (tab === "BEST" || p.pos === tab));
+      if (goneRows.length) {
+        html += '<div class="section-label">Crossed off</div>';
+        html += goneRows.map(p => rowHTML(p, "gone")).join("");
+      }
+    }
+    emptyMsg = tab === "BEST" ? "Every ranked player is off the board. What a draft." : "No " + (tab === "DST" ? "D/ST" : tab) + "s left on the board.";
+    foot.hidden = false;
+    $("toggleGone").setAttribute("aria-pressed", showGone);
+    $("toggleGone").textContent = showGone ? "Hide crossed-off players" : "Show crossed-off players";
+  }
+
+  list.innerHTML = html;
+  empty.hidden = !!html;
+  if (!html) empty.textContent = emptyMsg;
+}
+
+/* ---------- wiring ---------- */
+$("tabs").innerHTML = TABS.map(t =>
+  '<button class="tab" role="tab" data-tab="' + t.id + '">' + t.label + "</button>").join("");
+
+document.addEventListener("click", e => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  if (btn.dataset.tab) { tab = btn.dataset.tab; $("search").value = ""; render(); window.scrollTo(0, 0); return; }
+  if (btn.dataset.jump) { tab = btn.dataset.jump; render(); window.scrollTo(0, 0); return; }
+  const r = parseInt(btn.dataset.r, 10);
+  switch (btn.dataset.a) {
+    case "wish": toggleWish(r); break;
+    case "mine": draftMine(r); break;
+    case "gone": markGone(r); break;
+    case "restore": restoreGone(r); break;
+    case "unmine": removeMine(r); break;
+  }
+});
+
+$("search").addEventListener("input", render);
+$("chipTeam").addEventListener("click", () => { tab = "TEAM"; $("search").value = ""; render(); window.scrollTo(0, 0); });
+$("chipWish").addEventListener("click", () => { tab = "WISH"; $("search").value = ""; render(); window.scrollTo(0, 0); });
+$("toggleGone").addEventListener("click", () => { showGone = !showGone; render(); });
+$("undoBtn").addEventListener("click", undo);
+
+function openNameModal() {
+  $("nameModal").hidden = false;
+  $("nameInput").value = myName;
+  setTimeout(() => $("nameInput").focus(), 50);
+}
+function commitName() {
+  const v = $("nameInput").value.trim().slice(0, 24);
+  if (!v) return;
+  myName = v;
+  localStorage.setItem(NAME_KEY, myName);
+  $("nameModal").hidden = true;
+  render();
+}
+$("nameGo").addEventListener("click", commitName);
+$("nameInput").addEventListener("keydown", e => { if (e.key === "Enter") commitName(); });
+$("nameBtn").addEventListener("click", openNameModal);
+
+document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
+
+if (!myName) openNameModal();
+render();
+poll();
+setInterval(poll, POLL_MS);
+</script>
+</body>
+</html>
