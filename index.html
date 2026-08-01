@@ -221,7 +221,7 @@
   <div class="modal-card">
     <div class="fb">🏈</div>
     <h2>WTWKF Draft Board</h2>
-    <p>Enter your name so the league can see who crossed players off. Your picks show up as your team in the Teams tab; your wishlist stays private. Use the same name all draft.</p>
+    <p>Enter your name — your + picks show as your team in the Teams tab and come off everyone's board. Crossing off with ✕ only marks your own board. Wishlist stays private. Use the same name all draft.</p>
     <input id="nameInput" maxlength="24" placeholder="Your name" autocomplete="off">
     <button class="go" id="nameGo">Start drafting</button>
   </div>
@@ -287,10 +287,10 @@ const byRank = new Map(PLAYERS.map(p => [p.rank, p]));
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 /* ---------- local (per-phone) state ---------- */
-let local = { mine: [], keepersMine: [], wish: [], hist: [], pending: [] };
+let local = { mine: [], keepersMine: [], wish: [], gone: [], hist: [], pending: [] };
 try {
   const saved = JSON.parse(localStorage.getItem(KEY));
-  if (saved && Array.isArray(saved.mine)) local = { mine: [], keepersMine: [], wish: [], hist: [], pending: [], ...saved };
+  if (saved && Array.isArray(saved.mine)) local = { mine: [], keepersMine: [], wish: [], gone: [], hist: [], pending: [], ...saved };
 } catch (e) {}
 let myName = localStorage.getItem(NAME_KEY) || "";
 
@@ -320,7 +320,8 @@ function statusOf(rank) {
   if (a === "keeper" || a === "claimed") return "keeper";
   return "open";
 }
-function isOff(rank) { return statusOf(rank) !== "open"; }
+/* off YOUR board: on a team / keeper (global) or crossed off by you (local) */
+function isOff(rank) { return statusOf(rank) !== "open" || local.gone.includes(rank); }
 function goneBy(rank) {
   const p = pendingFor(rank);
   if (p) return p.by_name;
@@ -333,13 +334,12 @@ function ownerOf(rank) {
   return e && (e.action === "pick" || e.action === "claimed") ? e.by_name : "";
 }
 function teamOwners() {
-  const owners = new Map(); // name -> {picks, keeps, crosses}
-  const get = n => { if (!owners.has(n)) owners.set(n, { picks: [], keeps: [], crosses: 0 }); return owners.get(n); };
+  const owners = new Map(); // name -> {picks, keeps}
+  const get = n => { if (!owners.has(n)) owners.set(n, { picks: [], keeps: [] }); return owners.get(n); };
   for (const [rank, e] of latest.entries()) {
     if (!e.by_name) continue;
     if (e.action === "pick") get(e.by_name).picks.push({ rank, id: e.id });
     else if (e.action === "claimed") get(e.by_name).keeps.push({ rank, id: e.id });
-    else if (e.action === "drafted") get(e.by_name).crosses++;
   }
   return owners;
 }
@@ -442,7 +442,7 @@ function setOnline(v) {
 function updateSyncLabel() {
   const taken = PLAYERS.filter(p => isOff(p.rank) || mineSet().has(p.rank)).length;
   $("syncLabel").textContent = online
-    ? (taken ? "Live · " + taken + " of 200 off the board" : "Live · full board")
+    ? (taken ? "Live · " + taken + " of 200 off your board" : "Live · full board")
     : "Offline";
 }
 
@@ -453,12 +453,11 @@ function pushHist(a) {
 }
 
 function markGone(r) {
-  const wasWish = local.wish.includes(r);
-  pushHist({ t: "gone", r, wasWish });
-  queueOp(r, "drafted");
+  local.gone.push(r);
+  pushHist({ t: "gone", r });
   save();
   render();
-  toast(byRank.get(r).name + " crossed off");
+  toast(byRank.get(r).name + " crossed off your board");
 }
 
 function draftMine(r) {
@@ -485,11 +484,18 @@ function toggleWish(r) {
 }
 
 function restoreGone(r) {
-  pushHist({ t: "restoreGone", r });
-  queueOp(r, "undrafted");
+  const wasLocal = local.gone.includes(r);
+  pushHist({ t: "restoreGone", r, wasLocal });
+  if (wasLocal) {
+    local.gone = local.gone.filter(x => x !== r);
+    toast(byRank.get(r).name + " back on your board");
+  } else {
+    // undoing someone's team pick / legacy global cross-off
+    queueOp(r, "undrafted");
+    toast(byRank.get(r).name + " restored for everyone");
+  }
   save();
   render();
-  toast(byRank.get(r).name + " restored for everyone");
 }
 
 function removeMine(r) {
@@ -544,8 +550,7 @@ function undo() {
   if (!a) return;
   const p = byRank.get(a.r);
   if (a.t === "gone") {
-    queueOp(a.r, "undrafted");
-    if (a.wasWish && !local.wish.includes(a.r)) local.wish.push(a.r);
+    local.gone = local.gone.filter(x => x !== a.r);
   } else if (a.t === "mine") {
     local.mine = local.mine.filter(x => x !== a.r);
     queueOp(a.r, "undrafted");
@@ -555,7 +560,11 @@ function undo() {
   } else if (a.t === "unwish") {
     if (!local.wish.includes(a.r)) local.wish.push(a.r);
   } else if (a.t === "restoreGone") {
-    queueOp(a.r, "drafted");
+    if (a.wasLocal) {
+      if (!local.gone.includes(a.r)) local.gone.push(a.r);
+    } else {
+      queueOp(a.r, "drafted");
+    }
   } else if (a.t === "removeMine") {
     if (!local.mine.includes(a.r)) local.mine.push(a.r);
     queueOp(a.r, "pick");
@@ -627,7 +636,8 @@ function rowHTML(p, kind, extra) {
   if (kind === "gone") {
     const owner = ownerOf(p.rank);
     by = owner ? " &middot; " + esc(owner) + "'s pick"
-       : (goneBy(p.rank) ? " &middot; by " + esc(goneBy(p.rank)) : "");
+       : (local.gone.includes(p.rank) ? " &middot; your cross-off"
+       : (goneBy(p.rank) ? " &middot; by " + esc(goneBy(p.rank)) : ""));
   } else if (kind === "keeper") {
     const owner = ownerOf(p.rank);
     if (claimedSet().has(p.rank) || (owner && owner === myName)) by = " &middot; on your roster";
@@ -712,7 +722,6 @@ function render() {
         + '<div class="section-label">' + esc(viewTeam) + (viewTeam === myName ? " (you)" : "") + " &middot; " + (keeps.length + picks.length) + " players</div>"
         + keeps.map(p => rowHTML(p, "view", "K")).join("")
         + picks.map((p, i) => rowHTML(p, "view", i + 1)).join("");
-      if (o.crosses) html += '<div class="crosses-note">Also crossed off ' + o.crosses + " player" + (o.crosses > 1 ? "s" : "") + " without claiming them.</div>";
     } else {
       viewTeam = null;
       const names = [...owners.entries()].sort((a, b) => a[0].localeCompare(b[0]));
@@ -720,7 +729,7 @@ function render() {
         const cnt = o.picks.length + o.keeps.length;
         return '<li class="row"><button class="team-open" data-team="' + esc(n) + '">'
           + '<span class="t-name">' + esc(n) + (n === myName ? ' <span class="you">(you)</span>' : "") + "</span>"
-          + '<span class="t-count">' + cnt + " player" + (cnt === 1 ? "" : "s") + (o.crosses ? " &middot; " + o.crosses + " cross-off" + (o.crosses > 1 ? "s" : "") : "") + "</span>"
+          + '<span class="t-count">' + cnt + " player" + (cnt === 1 ? "" : "s") + "</span>"
           + '<span class="chev">›</span></button></li>';
       }).join("");
       emptyMsg = "No teams yet. When someone taps + on a player or claims a keeper, their roster shows up here for everyone.";
@@ -750,7 +759,8 @@ function render() {
     const avail = availablePlayers().filter(p => tab === "BEST" || p.pos === tab);
     html = avail.map(p => rowHTML(p, "avail")).join("");
     if (showGone) {
-      const goneRows = PLAYERS.filter(p => statusOf(p.rank) === "drafted" && (tab === "BEST" || p.pos === tab));
+      const goneRows = PLAYERS.filter(p =>
+        (statusOf(p.rank) === "drafted" || local.gone.includes(p.rank)) && (tab === "BEST" || p.pos === tab));
       if (goneRows.length) {
         html += '<div class="section-label">Crossed off</div>';
         html += goneRows.map(p => rowHTML(p, "gone")).join("");
@@ -847,10 +857,10 @@ $("resetBtn").addEventListener("click", async () => {
       if (!res.ok) throw new Error("reset failed " + res.status);
       (await res.json()).forEach(applyEvent);
     }
-    local.mine = []; local.keepersMine = []; local.wish = []; local.hist = []; local.pending = [];
+    local.mine = []; local.keepersMine = []; local.wish = []; local.gone = []; local.hist = []; local.pending = [];
     save();
     render();
-    toast("Fresh board — all picks cleared for everyone. Keepers kept.");
+    toast("Fresh board — team picks cleared for everyone. Keepers kept.");
   } catch (e) {
     toast("Couldn't reset — check your connection and try again.");
   }
