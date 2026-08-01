@@ -166,6 +166,11 @@
     font-size: 12px; color: var(--muted); flex-wrap: wrap;
   }
   .name-btn { font-size: 12px; font-weight: 700; color: var(--muted); padding: 8px 0; text-decoration: underline; }
+  .reset-btn {
+    font-size: 12px; font-weight: 700; color: var(--danger);
+    padding: 9px 14px; border: 1px solid var(--border); border-radius: 999px;
+  }
+  .reset-btn.arm { background: var(--danger); border-color: var(--danger); color: #fff; }
 
   .toast {
     position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%);
@@ -247,6 +252,7 @@
 <footer>
   <span>ESPN PPR Top 300 cheat sheet &middot; Jul 31, 2026</span>
   <button class="name-btn" id="nameBtn"></button>
+  <button class="reset-btn" id="resetBtn">Start fresh</button>
 </footer>
 
 <script>
@@ -263,6 +269,7 @@ const POS = ["QB", "RB", "WR", "TE", "K", "DST"];
 const TABS = [
   { id: "BEST", label: "Best" },
   ...POS.map(p => ({ id: p, label: p === "DST" ? "D/ST" : p })),
+  { id: "KEEP", label: "Keepers" },
   { id: "WISH", label: "★ Wishlist" },
   { id: "TEAM", label: "My Team" },
 ];
@@ -272,10 +279,10 @@ const byRank = new Map(PLAYERS.map(p => [p.rank, p]));
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 /* ---------- local (per-phone) state ---------- */
-let local = { mine: [], wish: [], hist: [], pending: [] };
+let local = { mine: [], keepersMine: [], wish: [], hist: [], pending: [] };
 try {
   const saved = JSON.parse(localStorage.getItem(KEY));
-  if (saved && Array.isArray(saved.mine)) local = { mine: [], wish: [], hist: [], pending: [], ...saved };
+  if (saved && Array.isArray(saved.mine)) local = { mine: [], keepersMine: [], wish: [], hist: [], pending: [], ...saved };
 } catch (e) {}
 let myName = localStorage.getItem(NAME_KEY) || "";
 
@@ -297,12 +304,14 @@ function pendingFor(rank) {
     if (local.pending[i].rank === rank) return local.pending[i];
   return null;
 }
-function isGone(rank) {
+function statusOf(rank) {
   const p = pendingFor(rank);
-  if (p) return p.action === "drafted";
-  const e = latest.get(rank);
-  return !!e && e.action === "drafted";
+  const a = p ? p.action : (latest.get(rank) || {}).action;
+  if (a === "drafted") return "drafted";
+  if (a === "keeper") return "keeper";
+  return "open";
 }
+function isOff(rank) { return statusOf(rank) !== "open"; }
 function goneBy(rank) {
   const p = pendingFor(rank);
   if (p) return p.by_name;
@@ -310,6 +319,7 @@ function goneBy(rank) {
   return e ? e.by_name : "";
 }
 const mineSet = () => new Set(local.mine);
+const claimedSet = () => new Set(local.keepersMine);
 const wishSet = () => new Set(local.wish);
 
 function toast(msg) {
@@ -386,7 +396,8 @@ async function poll() {
     if (news.length === 1) {
       const e = news[0];
       const p = byRank.get(e.rank);
-      if (p) toast(p.name + (e.action === "drafted" ? " crossed off" : " restored") + (e.by_name ? " — " + e.by_name : ""));
+      const verb = { drafted: " crossed off", undrafted: " restored", keeper: " marked as keeper", unkeeper: " back on the board" }[e.action] || " updated";
+      if (p) toast(p.name + verb + (e.by_name ? " — " + e.by_name : ""));
     } else if (news.length > 1) {
       toast(news.length + " board updates from the league");
     }
@@ -404,7 +415,7 @@ function setOnline(v) {
   updateSyncLabel();
 }
 function updateSyncLabel() {
-  const taken = PLAYERS.filter(p => isGone(p.rank) || mineSet().has(p.rank)).length;
+  const taken = PLAYERS.filter(p => isOff(p.rank) || mineSet().has(p.rank)).length;
   $("syncLabel").textContent = online
     ? (taken ? "Live · " + taken + " of 200 off the board" : "Live · full board")
     : "Offline";
@@ -465,6 +476,42 @@ function removeMine(r) {
   toast(byRank.get(r).name + " returned to the pool");
 }
 
+function markKeeper(r) {
+  const wasWish = local.wish.includes(r);
+  local.wish = local.wish.filter(x => x !== r);
+  pushHist({ t: "keeper", r, wasWish });
+  queueOp(r, "keeper");
+  save();
+  render();
+  toast(byRank.get(r).name + " marked as keeper");
+}
+
+function removeKeeper(r) {
+  const wasClaimed = local.keepersMine.includes(r);
+  local.keepersMine = local.keepersMine.filter(x => x !== r);
+  pushHist({ t: "unkeeper", r, wasClaimed });
+  queueOp(r, "unkeeper");
+  save();
+  render();
+  toast(byRank.get(r).name + " back on the draft board");
+}
+
+function claimKeeper(r) {
+  local.keepersMine.push(r);
+  pushHist({ t: "claim", r });
+  save();
+  render();
+  toast(byRank.get(r).name + " claimed — on your roster");
+}
+
+function unclaimKeeper(r) {
+  local.keepersMine = local.keepersMine.filter(x => x !== r);
+  pushHist({ t: "unclaim", r });
+  save();
+  render();
+  toast(byRank.get(r).name + " unclaimed (still a keeper)");
+}
+
 function undo() {
   const a = local.hist.pop();
   if (!a) return;
@@ -485,6 +532,16 @@ function undo() {
   } else if (a.t === "removeMine") {
     if (!local.mine.includes(a.r)) local.mine.push(a.r);
     queueOp(a.r, "drafted");
+  } else if (a.t === "keeper") {
+    queueOp(a.r, "unkeeper");
+    if (a.wasWish && !local.wish.includes(a.r)) local.wish.push(a.r);
+  } else if (a.t === "unkeeper") {
+    queueOp(a.r, "keeper");
+    if (a.wasClaimed && !local.keepersMine.includes(a.r)) local.keepersMine.push(a.r);
+  } else if (a.t === "claim") {
+    local.keepersMine = local.keepersMine.filter(x => x !== a.r);
+  } else if (a.t === "unclaim") {
+    if (!local.keepersMine.includes(a.r)) local.keepersMine.push(a.r);
   }
   save();
   render();
@@ -497,7 +554,7 @@ function pill(p) {
 }
 function availablePlayers() {
   const m = mineSet();
-  return PLAYERS.filter(p => !isGone(p.rank) && !m.has(p.rank));
+  return PLAYERS.filter(p => !isOff(p.rank) && !m.has(p.rank));
 }
 
 function rowHTML(p, kind, extra) {
@@ -512,11 +569,24 @@ function rowHTML(p, kind, extra) {
     actions = '<button class="act undo-one" aria-label="Restore ' + esc(p.name) + '" data-a="restore" data-r="' + p.rank + '">↩</button>';
   } else if (kind === "team") {
     actions = '<button class="act gone" aria-label="Remove ' + esc(p.name) + ' from my team" data-a="unmine" data-r="' + p.rank + '">✕</button>';
+  } else if (kind === "teamkeeper") {
+    actions = '<button class="act gone" aria-label="Unclaim keeper ' + esc(p.name) + '" data-a="unclaim" data-r="' + p.rank + '">✕</button>';
+  } else if (kind === "keeper") {
+    const claimed = claimedSet().has(p.rank);
+    actions = claimed
+      ? '<button class="act gone" aria-label="Unclaim ' + esc(p.name) + '" data-a="unclaim" data-r="' + p.rank + '">✕</button>'
+      : '<button class="act mine" aria-label="Claim ' + esc(p.name) + ' to my roster" data-a="claim" data-r="' + p.rank + '">+</button>' +
+        '<button class="act gone" aria-label="Remove keeper status from ' + esc(p.name) + '" data-a="unkeeper" data-r="' + p.rank + '">✕</button>';
+  } else if (kind === "keepsearch") {
+    actions = '<button class="act wish" aria-pressed="true" aria-label="Mark ' + esc(p.name) + ' as keeper" data-a="keeper" data-r="' + p.rank + '">K</button>';
   }
   const lead = kind === "team"
     ? '<div class="pick-num">#' + extra + "</div>"
-    : '<div class="p-rank">' + p.rank + "</div>";
-  const by = kind === "gone" && goneBy(p.rank) ? " &middot; by " + esc(goneBy(p.rank)) : "";
+    : (kind === "teamkeeper"
+      ? '<div class="pick-num">K</div>'
+      : '<div class="p-rank">' + p.rank + "</div>");
+  let by = kind === "gone" && goneBy(p.rank) ? " &middot; by " + esc(goneBy(p.rank)) : "";
+  if (kind === "keeper" && claimedSet().has(p.rank)) by = " &middot; on your roster";
   return (
     '<li class="row' + (kind === "gone" ? " gone-row" : "") + '">' + lead +
     '<div class="p-info"><div class="p-name">' + esc(p.name) + "</div>" +
@@ -545,8 +615,11 @@ function renderNextBest() {
 
 function render() {
   document.querySelectorAll(".tab").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
-  $("teamCount").textContent = local.mine.length;
-  $("wishCount").textContent = local.wish.filter(r => !isGone(r)).length;
+  $("teamCount").textContent = local.mine.length + local.keepersMine.length;
+  $("wishCount").textContent = local.wish.filter(r => !isOff(r)).length;
+  $("search").placeholder = tab === "KEEP"
+    ? "Search players to mark as keepers…"
+    : "Search any player to cross off…";
   $("chipTeam").setAttribute("aria-pressed", tab === "TEAM");
   $("chipWish").setAttribute("aria-pressed", tab === "WISH");
   $("undoBtn").disabled = !local.hist.length;
@@ -565,25 +638,40 @@ function render() {
   let html = "";
   let emptyMsg = "";
 
-  if (q) {
+  if (tab === "KEEP") {
+    if (q) {
+      const hits = availablePlayers().filter(p =>
+        p.name.toLowerCase().includes(q) || p.team.toLowerCase().includes(q));
+      html = hits.map(p => rowHTML(p, "keepsearch")).join("");
+      emptyMsg = "No available player matches “" + $("search").value.trim() + "”.";
+    } else {
+      const keepers = PLAYERS.filter(p => statusOf(p.rank) === "keeper");
+      html = keepers.map(p => rowHTML(p, "keeper")).join("");
+      emptyMsg = "No keepers yet. Type a name in the search box above, then tap K to take them off the draft board. Owners can tap + here to claim their keeper onto their roster.";
+    }
+    foot.hidden = true;
+  } else if (q) {
     const hits = availablePlayers().filter(p =>
       p.name.toLowerCase().includes(q) || p.team.toLowerCase().includes(q));
     html = hits.map(p => rowHTML(p, "avail")).join("");
     emptyMsg = "No available player matches “" + $("search").value.trim() + "”.";
     foot.hidden = true;
   } else if (tab === "TEAM") {
+    const roster = local.keepersMine.map(r => byRank.get(r)).sort((a, b) => a.rank - b.rank)
+      .concat(local.mine.map(r => byRank.get(r)));
     const counts = {};
-    local.mine.forEach(r => { const p = byRank.get(r); counts[p.pos] = (counts[p.pos] || 0) + 1; });
-    if (local.mine.length) {
+    roster.forEach(p => { counts[p.pos] = (counts[p.pos] || 0) + 1; });
+    if (roster.length) {
       summary.hidden = false;
       summary.innerHTML = POS.filter(p => counts[p])
         .map(p => '<span class="rs-chip">' + (p === "DST" ? "D/ST" : p) + " " + counts[p] + "</span>").join("");
     }
-    html = local.mine.map((r, i) => rowHTML(byRank.get(r), "team", i + 1)).join("");
-    emptyMsg = "No picks yet. Tap + on a player when you draft them.";
+    html = local.keepersMine.slice().sort((a, b) => a - b).map(r => rowHTML(byRank.get(r), "teamkeeper")).join("")
+      + local.mine.map((r, i) => rowHTML(byRank.get(r), "team", i + 1)).join("");
+    emptyMsg = "No picks yet. Tap + on a player when you draft them, or claim your keepers from the Keepers tab.";
     foot.hidden = true;
   } else if (tab === "WISH") {
-    const rows = local.wish.filter(r => !isGone(r) && !mineSet().has(r))
+    const rows = local.wish.filter(r => !isOff(r) && !mineSet().has(r))
       .map(r => byRank.get(r)).sort((a, b) => a.rank - b.rank);
     html = rows.map(p => rowHTML(p, "avail")).join("");
     emptyMsg = "Wishlist is empty. Tap ☆ on players you're targeting — they drop off automatically when anyone drafts them.";
@@ -592,7 +680,7 @@ function render() {
     const avail = availablePlayers().filter(p => tab === "BEST" || p.pos === tab);
     html = avail.map(p => rowHTML(p, "avail")).join("");
     if (showGone) {
-      const goneRows = PLAYERS.filter(p => isGone(p.rank) && (tab === "BEST" || p.pos === tab));
+      const goneRows = PLAYERS.filter(p => statusOf(p.rank) === "drafted" && (tab === "BEST" || p.pos === tab));
       if (goneRows.length) {
         html += '<div class="section-label">Crossed off</div>';
         html += goneRows.map(p => rowHTML(p, "gone")).join("");
@@ -625,6 +713,10 @@ document.addEventListener("click", e => {
     case "gone": markGone(r); break;
     case "restore": restoreGone(r); break;
     case "unmine": removeMine(r); break;
+    case "keeper": markKeeper(r); break;
+    case "unkeeper": removeKeeper(r); break;
+    case "claim": claimKeeper(r); break;
+    case "unclaim": unclaimKeeper(r); break;
   }
 });
 
@@ -650,6 +742,45 @@ function commitName() {
 $("nameGo").addEventListener("click", commitName);
 $("nameInput").addEventListener("keydown", e => { if (e.key === "Enter") commitName(); });
 $("nameBtn").addEventListener("click", openNameModal);
+
+let resetArmed = false;
+let resetTimer = null;
+$("resetBtn").addEventListener("click", async () => {
+  if (!resetArmed) {
+    resetArmed = true;
+    $("resetBtn").textContent = "Tap again: clears all picks for EVERYONE";
+    $("resetBtn").classList.add("arm");
+    resetTimer = setTimeout(() => {
+      resetArmed = false;
+      $("resetBtn").textContent = "Start fresh";
+      $("resetBtn").classList.remove("arm");
+    }, 4000);
+    return;
+  }
+  clearTimeout(resetTimer);
+  resetArmed = false;
+  $("resetBtn").textContent = "Start fresh";
+  $("resetBtn").classList.remove("arm");
+  const ops = PLAYERS.filter(p => statusOf(p.rank) === "drafted")
+    .map(p => ({ room: ROOM, rank: p.rank, action: "undrafted", by_name: myName }));
+  try {
+    if (ops.length) {
+      const res = await fetch(CFG.url + "/rest/v1/draft_events", {
+        method: "POST",
+        headers: { apikey: CFG.key, "content-type": "application/json", prefer: "return=representation" },
+        body: JSON.stringify(ops),
+      });
+      if (!res.ok) throw new Error("reset failed " + res.status);
+      (await res.json()).forEach(applyEvent);
+    }
+    local.mine = []; local.keepersMine = []; local.wish = []; local.hist = []; local.pending = [];
+    save();
+    render();
+    toast("Fresh board — all picks cleared for everyone. Keepers kept.");
+  } catch (e) {
+    toast("Couldn't reset — check your connection and try again.");
+  }
+});
 
 document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
 
